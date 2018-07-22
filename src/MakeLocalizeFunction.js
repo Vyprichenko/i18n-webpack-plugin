@@ -1,14 +1,41 @@
 /**
- * Convert the localization object into a function in case we need to support nested keys.
+ * Convert the localization object into a function
+ * Returned function will always return Promise itself
  *
- * @param {Object} localization the language object,
- * @param {Boolean} nested
+ * @param {object|function} localization
+ * @param {boolean} nested
  *
- * @returns {Function}
+ * @returns {function}
  */
 function makeLocalizeFunction(localization, nested) {
-  return function localizeFunction(key) {
-    return nested ? byString(localization, key) : localization[key];
+  /**
+   * @param {string} param - name of the resource
+   * @param {string} [defaultValue] - default resource value
+   *
+   * @returns {Promise}
+   */
+  return function localizeFunction(param, defaultValue) {
+    let result;
+
+    if (param) {
+      if (typeof localization === 'function') {
+        result = localization(param);
+      } else if (localization) {
+        result = nested ? byString(localization, param) : localization[param];
+      }
+    }
+
+    if (result instanceof Promise) {
+      return result.then(result => result, () => defaultValue);
+    }
+
+    return new Promise((resolve, reject) => {
+      if (typeof result !== 'undefined') {
+        resolve(result);
+      } else {
+        reject(defaultValue);
+      }
+    });
   };
 }
 

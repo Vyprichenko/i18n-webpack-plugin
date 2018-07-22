@@ -1,6 +1,9 @@
 import makeLocalizeFunction from '../src/MakeLocalizeFunction';
 
 describe('MakeLocalizeFunction', () => {
+  const onFulfilled = () => { };
+  const onRejected = () => { };
+
   describe('with nested support', () => {
     let localize;
 
@@ -18,12 +21,26 @@ describe('MakeLocalizeFunction', () => {
       localize = makeLocalizeFunction(translations, nested);
     });
 
-    it('should return `Foo` for `a.b.c`', () => {
-      expect(localize('a.b.c')).toEqual('Foo');
+    it('should return Promise', () => {
+      expect(localize()).toBeInstanceOf(Promise);
     });
 
-    it('should return `undefined` for the missing translation', () => {
-      expect(localize('the missing translation')).toEqual(undefined); // eslint-disable-line no-undefined
+    it('should be resolved with `Foo` for `a.b.c`', () => {
+      localize('a.b.c').then(
+        (value) => {
+          expect(value).toEqual('Foo');
+        },
+        onRejected,
+      );
+    });
+
+    it('should be rejected with `undefined` for the missing translation', () => {
+      localize('the missing translation').then(
+        onFulfilled,
+        (defaultValue) => {
+          expect(defaultValue).toEqual(undefined); // eslint-disable-line no-undefined
+        },
+      );
     });
   });
 
@@ -44,12 +61,26 @@ describe('MakeLocalizeFunction', () => {
       localize = makeLocalizeFunction(translations, nested);
     });
 
-    it('should return `bar` for `a.b.c`', () => {
-      expect(localize('a.b.c')).toEqual('bar');
+    it('should return Promise', () => {
+      expect(localize()).toBeInstanceOf(Promise);
     });
 
-    it('should return `undefined` for the missing translation', () => {
-      expect(localize('the missing translation')).toEqual(undefined); // eslint-disable-line no-undefined
+    it('should be resolved with `bar` for `a.b.c`', () => {
+      localize('a.b.c').then(
+        (value) => {
+          expect(value).toEqual('bar');
+        },
+        onRejected,
+      );
+    });
+
+    it('should be rejected with `undefined` for the missing translation', () => {
+      localize('the missing translation').then(
+        onFulfilled,
+        (defaultValue) => {
+          expect(defaultValue).toEqual(undefined); // eslint-disable-line no-undefined
+        },
+      );
     });
   });
 });
