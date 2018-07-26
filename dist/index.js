@@ -103,7 +103,7 @@ var I18nPlugin = function () {
           } else {
             callback();
           }
-          _this.promises = [];
+          _this.promises.length = 0;
         });
 
         data.normalModuleFactory.plugin('parser', function (parser, options) {

@@ -69,7 +69,7 @@ class I18nPlugin {
         } else {
           callback();
         }
-        this.promises = [];
+        this.promises.length = 0;
       });
 
       data.normalModuleFactory.plugin('parser', (parser, options) => { // eslint-disable-line no-unused-vars
