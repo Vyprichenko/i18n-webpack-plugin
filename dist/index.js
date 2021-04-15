@@ -1,50 +1,35 @@
-'use strict';
+"use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.default = void 0;
 
-var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }(); /*
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       MIT License http://www.opensource.org/licenses/mit-license.php
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       Author Tobias Koppers @sokra
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     */
+var _ConstDependency = _interopRequireDefault(require("webpack/lib/dependencies/ConstDependency"));
 
+var _NullFactory = _interopRequireDefault(require("webpack/lib/NullFactory"));
 
-var _ConstDependency = require('webpack/lib/dependencies/ConstDependency');
+var _MissingLocalizationError = _interopRequireDefault(require("./MissingLocalizationError"));
 
-var _ConstDependency2 = _interopRequireDefault(_ConstDependency);
-
-var _NullFactory = require('webpack/lib/NullFactory');
-
-var _NullFactory2 = _interopRequireDefault(_NullFactory);
-
-var _MissingLocalizationError = require('./MissingLocalizationError');
-
-var _MissingLocalizationError2 = _interopRequireDefault(_MissingLocalizationError);
-
-var _MakeLocalizeFunction = require('./MakeLocalizeFunction');
-
-var _MakeLocalizeFunction2 = _interopRequireDefault(_MakeLocalizeFunction);
+var _MakeLocalizeFunction = _interopRequireDefault(require("./MakeLocalizeFunction"));
 
 function _interopRequireDefault(obj) { return obj && obj.__esModule ? obj : { default: obj }; }
 
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+/*
+  MIT License http://www.opensource.org/licenses/mit-license.php
+  Author Tobias Koppers @sokra
+*/
 
 /**
- * @constructor
+ *
  * @param {object|function} localization
- * @param {object|string} options - object or obselete functionName string
- * @param {string} [options.functionName] - name of the function to be parsed and replaced with translations
- * @param {boolean} [options.nested] - should key names with dot-separator be processed like paths to nested elements,
- *                                     makes sense only when localization is of object type
- * @param {boolean} [options.failOnMissing] - throw error and interrupt build process when localization is missing
- * @param {boolean} [options.hideMessage] - suppress warnings output during build process
+ * @param {object|string} Options object or obselete functionName string
+ * @constructor
  */
-var I18nPlugin = function () {
-  function I18nPlugin(localization, options, failOnMissing) {
-    _classCallCheck(this, I18nPlugin);
+class I18nPlugin {
+  constructor(localization, poptions, failOnMissing) {
+    let options = poptions; // Backward-compatiblility
 
-    // Backward-compatiblility
     if (typeof options === 'string') {
       options = {
         functionName: options
@@ -55,119 +40,100 @@ var I18nPlugin = function () {
       options.failOnMissing = failOnMissing;
     }
 
-    // Promises waiting for localization calls resolving
-    this.promises = [];
     this.options = options || {};
-    this.localization = (0, _MakeLocalizeFunction2.default)(localization, !!this.options.nested);
+    this.localization = (0, _MakeLocalizeFunction.default)(localization, !!this.options.nested);
+    this.promises = [];
     this.functionName = this.options.functionName || '__';
     this.failOnMissing = !!this.options.failOnMissing;
     this.hideMessage = this.options.hideMessage || false;
   }
 
-  _createClass(I18nPlugin, [{
-    key: 'apply',
-    value: function apply(compiler) {
-      var _this = this;
+  apply(compiler) {
+    const PLUGIN_NAME = 'I18nPlugin';
+    const {
+      localization,
+      promises,
+      failOnMissing,
+      hideMessage
+    } = this;
+    const name = this.functionName;
+    compiler.hooks.compilation.tap(PLUGIN_NAME, (compilation, {
+      normalModuleFactory
+    }) => {
+      compilation.dependencyFactories.set(_ConstDependency.default, new _NullFactory.default());
+      compilation.dependencyTemplates.set(_ConstDependency.default, new _ConstDependency.default.Template()); // Use optimize-tree async hook to pause module sealing
+      // while waiting for localization calls to be resolved
 
-      var promises = this.promises,
-          localization = this.localization,
-          failOnMissing = this.failOnMissing,
-          hideMessage = this.hideMessage; // eslint-disable-line no-unused-vars
+      compilation.hooks.optimizeTree.tapAsync(PLUGIN_NAME, (chunks, modules, callback) => {
+        if (promises.length > 0) {
+          Promise.allSettled(promises).finally(callback);
+        } else {
+          callback();
+        }
+      }); // Adds functionName(...) calls replacements to the parser state
 
-      var name = this.functionName;
+      const handleLocalization = (state, expr, result) => {
+        const dep = new _ConstDependency.default(JSON.stringify(result), expr.range);
+        dep.loc = expr.loc;
+        state.current.addDependency(dep);
+        return result;
+      }; // Hooks javascript parsers to replace functionName(...) calls
+      // with localized string values
 
-      compiler.plugin('compilation', function (compilation, params) {
-        // eslint-disable-line no-unused-vars
-        compilation.dependencyFactories.set(_ConstDependency2.default, new _NullFactory2.default());
-        compilation.dependencyTemplates.set(_ConstDependency2.default, new _ConstDependency2.default.Template());
-      });
 
-      compiler.plugin('compilation', function (compilation, data) {
-        // Use optimize-tree async hook to pause module sealing
-        // while waiting for localization calls to be resolved
-        compilation.plugin('optimize-tree', function (chunks, modules, callback) {
-          var promisesCount = _this.promises.length;
-          if (promisesCount > 0) {
-            var promiseFinally = function promiseFinally() {
-              // Remove finalized promise from the array of pending
-              promisesCount -= 1;
-              // Complete compilation step after all promises were finalized
-              if (promisesCount === 0) {
-                callback();
-              }
-            };
-            _this.promises.forEach(function (p) {
-              // TODO: use Promise.prototype.finally instead (check node version)
-              p.then(promiseFinally, promiseFinally);
-            });
-          } else {
-            callback();
+      const handleParser = parser => {
+        parser.hooks.call.for(name).tap(`call ${name}`, function i18nPlugin(expr) {
+          const state = this.state;
+          let param;
+          let defaultValue;
+
+          switch (expr.arguments.length) {
+            case 2:
+              param = expr.arguments[1].value;
+              if (typeof param !== 'string') return;
+              defaultValue = expr.arguments[0].value;
+              if (typeof defaultValue !== 'string') return;
+              break;
+
+            case 1:
+              param = expr.arguments[0].value;
+              if (typeof param !== 'string') return;
+              defaultValue = param;
+              break;
+
+            default:
+              return;
           }
-          _this.promises.length = 0;
-        });
 
-        data.normalModuleFactory.plugin('parser', function (parser, options) {
-          // eslint-disable-line no-unused-vars
-          // Should use function here instead of arrow function due to save the Tapable's context
-          parser.plugin(`call ${name}`, function i18nPlugin(expr) {
-            var param = void 0;
-            var defaultValue = void 0;
+          promises[promises.length] = localization(param).then(result => handleLocalization(state, expr, result), result => {
+            let error = state.module[__dirname];
 
-            var state = this.state;
-            var applyResult = function applyResult(result) {
-              var dep = new _ConstDependency2.default(JSON.stringify(result), expr.range);
-              dep.loc = expr.loc;
-              state.current.addDependency(dep);
-            };
+            if (!error) {
+              error = new _MissingLocalizationError.default(state.module, param, defaultValue);
+              state.module[__dirname] = error;
 
-            switch (expr.arguments.length) {
-              case 2:
-                param = this.evaluateExpression(expr.arguments[1]);
-                if (!param.isString()) return;
-                param = param.string;
-                defaultValue = this.evaluateExpression(expr.arguments[0]);
-                if (!defaultValue.isString()) return;
-                defaultValue = defaultValue.string;
-                break;
-              case 1:
-                param = this.evaluateExpression(expr.arguments[0]);
-                if (!param.isString()) return;
-                param = param.string;
-                defaultValue = param;
-                break;
-              default:
-                return;
+              if (failOnMissing) {
+                state.module.errors.push(error);
+              } else if (!hideMessage) {
+                state.module.warnings.push(error);
+              }
+            } else if (!error.requests.includes(param)) {
+              error.add(param, defaultValue);
             }
 
-            promises[promises.length] = localization(param, defaultValue).then(function (resultValue) {
-              applyResult(resultValue);
-            }, function (defaultValue) {
-              applyResult(defaultValue);
-
-              // TODO: error output
-              var error = state.module[__dirname];
-              if (!error) {
-                error = new _MissingLocalizationError2.default(state.module, param, defaultValue);
-                state.module[__dirname] = error;
-
-                if (failOnMissing) {
-                  state.module.errors.push(error);
-                } else if (!hideMessage) {
-                  state.module.warnings.push(error);
-                }
-              } else if (!error.requests.includes(param)) {
-                error.add(param, defaultValue);
-              }
-            });
-
-            return true;
+            return handleLocalization(state, expr, result);
           });
-        });
-      });
-    }
-  }]);
+          return true;
+        }.bind(parser));
+      };
 
-  return I18nPlugin;
-}();
+      normalModuleFactory.hooks.parser.for('javascript/auto').tap(PLUGIN_NAME, handleParser);
+      normalModuleFactory.hooks.parser.for('javascript/dynamic').tap(PLUGIN_NAME, handleParser);
+      normalModuleFactory.hooks.parser.for('javascript/esm').tap(PLUGIN_NAME, handleParser);
+    });
+  }
 
-exports.default = I18nPlugin;
+}
+
+var _default = I18nPlugin;
+exports.default = _default;

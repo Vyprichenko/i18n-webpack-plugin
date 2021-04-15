@@ -9,11 +9,11 @@
  */
 function makeLocalizeFunction(localization, nested) {
   /**
-   * @param {string} param - name of the resource
-   * @param {string} [defaultValue] - default resource value
-   *
-   * @returns {Promise}
-   */
+     * @param {string} param - name of the resource
+     * @param {string} [defaultValue] - default resource value
+     *
+     * @returns {Promise}
+     */
   return function localizeFunction(param, defaultValue) {
     let result;
 
@@ -25,17 +25,16 @@ function makeLocalizeFunction(localization, nested) {
       }
     }
 
-    if (result instanceof Promise) {
-      return result.then(result => result, () => defaultValue);
-    }
-
-    return new Promise((resolve, reject) => {
-      if (typeof result !== 'undefined') {
-        resolve(result);
-      } else {
-        reject(defaultValue);
-      }
-    });
+    return Promise.resolve(result).then(
+      (value) => {
+        if (typeof value !== 'undefined') {
+          return Promise.resolve(value);
+        }
+        return Promise.reject(defaultValue);
+      },
+      // Rethrow rejected Promise with default value
+      () => Promise.reject(defaultValue || ''),
+    );
   };
 }
 
@@ -57,10 +56,12 @@ function byString(localization, nestedKey) {
   const keys = nestedKey.replace(/^\./, '').split('.');
 
   // loop through the keys to find the nested value
-  for (let i = 0, length = keys.length; i < length; ++i) {
+  for (let i = 0, { length } = keys; i < length; ++i) {
     const key = keys[i];
 
-    if (!(key in localization)) { return; }
+    if (!(key in localization)) {
+      return;
+    }
 
     localization = localization[key];
   }

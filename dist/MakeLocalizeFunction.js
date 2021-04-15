@@ -1,8 +1,10 @@
-'use strict';
+"use strict";
 
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
+exports.default = void 0;
+
 /**
  * Convert the localization object into a function
  * Returned function will always return Promise itself
@@ -20,7 +22,7 @@ function makeLocalizeFunction(localization, nested) {
    * @returns {Promise}
    */
   return function localizeFunction(param, defaultValue) {
-    var result = void 0;
+    let result;
 
     if (param) {
       if (typeof localization === 'function') {
@@ -30,24 +32,16 @@ function makeLocalizeFunction(localization, nested) {
       }
     }
 
-    if (result instanceof Promise) {
-      return result.then(function (result) {
-        return result;
-      }, function () {
-        return defaultValue;
-      });
-    }
-
-    return new Promise(function (resolve, reject) {
-      if (typeof result !== 'undefined') {
-        resolve(result);
+    return Promise.resolve(result).then(value => {
+      if (typeof value !== 'undefined') {
+        return Promise.resolve(value);
       } else {
-        reject(defaultValue);
+        return Promise.reject(defaultValue);
       }
-    });
+    }, // Rethrow rejected Promise with default value
+    () => Promise.reject(defaultValue || ''));
   };
 }
-
 /**
  * Find the key if the key is a path expressed with dots
  *
@@ -61,13 +55,14 @@ function makeLocalizeFunction(localization, nested) {
  *
  * @returns {*}
  */
+
+
 function byString(localization, nestedKey) {
   // remove a leading dot and split by dot
-  var keys = nestedKey.replace(/^\./, '').split('.');
+  const keys = nestedKey.replace(/^\./, '').split('.'); // loop through the keys to find the nested value
 
-  // loop through the keys to find the nested value
-  for (var i = 0, length = keys.length; i < length; ++i) {
-    var key = keys[i];
+  for (let i = 0, length = keys.length; i < length; ++i) {
+    const key = keys[i];
 
     if (!(key in localization)) {
       return;
@@ -79,4 +74,5 @@ function byString(localization, nestedKey) {
   return localization;
 }
 
-exports.default = makeLocalizeFunction;
+var _default = makeLocalizeFunction;
+exports.default = _default;
